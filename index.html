@@ -206,7 +206,7 @@ p { margin: 0; }
 .names input { flex: 1; min-width: 0; background: transparent; border: 0; padding: 6px 0; font-weight: 600; font-size: 15px; }
 .names input:focus { outline: none; }
 .x { border: 0; background: transparent; width: 28px; height: 28px; border-radius: 8px; color: var(--faint); flex: none; display: grid; place-items: center; }
-.x:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,.06); }
+@media (hover: hover) { .x:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,.06); } }
 .x .ic { width: 15px; height: 15px; }
 .link { background: none; border: 0; padding: 4px 0; color: var(--gold-hi); font-weight: 700; font-size: 14px; text-align: left; display: inline-flex; align-items: center; gap: 6px; }
 .link .ic { width: 16px; height: 16px; }
@@ -286,6 +286,7 @@ p { margin: 0; }
   padding: 22px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   background: linear-gradient(180deg, transparent, rgba(3,20,14,.9) 34%);
   display: flex; flex-direction: column; gap: 8px; align-items: center;
+  margin-bottom: calc(-36px - env(safe-area-inset-bottom, 0px));
 }
 .cta-meta { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: .02em; }
 
