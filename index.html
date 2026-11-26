@@ -416,6 +416,13 @@ p { margin: 0; }
 .pick[aria-pressed="true"] { border-color: var(--red-hi); background: linear-gradient(180deg, rgba(201,53,61,.35), rgba(201,53,61,.15)); box-shadow: 0 0 0 3px rgba(201,53,61,.25); }
 .pick.none { grid-column: 1 / -1; justify-content: center; border-style: dashed; border-color: var(--hair); color: var(--gold-hi); padding: 13px; }
 .pick.none[aria-pressed="true"] { background: rgba(217,172,79,.18); border-color: var(--gold); box-shadow: 0 0 0 3px rgba(217,172,79,.2); }
+.seat-pick .pick[aria-pressed="true"] { border-color: var(--gold); background: rgba(217,172,79,.14); box-shadow: 0 0 0 3px rgba(217,172,79,.16); }
+.pick .ord { margin-left: auto; flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--foil); color: var(--gold-ink); font-family: var(--font-display); font-weight: 800; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,.35); }
+.names.nums li { padding: 5px 12px 5px 6px; }
+.numname { font-weight: 600; font-size: 15px; padding-block: 6px; }
+.av.two { font-size: calc(var(--s) * .34); letter-spacing: -.04em; }
+.warn { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold-hi); background: rgba(217,172,79,.1); border: 1px solid var(--hair-soft); border-radius: 12px; padding: 9px 12px; }
+.warn .ic { width: 16px; height: 16px; color: var(--gold); }
 .tally { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
 .bar { display: grid; grid-template-columns: auto minmax(0, 6.5em) 1fr 1.8em; align-items: center; gap: 10px; text-align: left; font-weight: 700; font-size: 14.5px; }
 .bar .nm2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -571,16 +578,20 @@ const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':
 const plural = (k, one, many) => k === 1 ? one : many;
 const ic = (name, cls = '') => `<i data-lucide="${name}" class="ic ${cls}"></i>`;
 const CHIP = ['#b8333a', '#2f5d9e', '#2b2b2b', '#2f7d4f', '#6b3f8f', '#c0662a', '#1f7a7a', '#9a7420', '#a8336f', '#4a5a6a'];
+const numbered = () => S.settings.labels === 'numbers';
+const labelList = () => numbered() ? S.players.map((_, i) => `Spelare ${i + 1}`) : S.players;
 function av(name, i, size = '') {
-  const ch = esc(([...String(name).trim()][0] || '?').toUpperCase());
-  return `<span class="av ${size}" style="--c:${CHIP[Math.max(0, i) % CHIP.length]}" aria-hidden="true">${ch}</span>`;
+  const m = numbered() && /^Spelare (\d+)$/.exec(String(name));
+  if (m) i = +m[1] - 1;
+  const ch = m ? m[1] : esc(([...String(name).trim()][0] || '?').toUpperCase());
+  return `<span class="av ${size}${m && m[1].length > 1 ? ' two' : ''}" style="--c:${CHIP[Math.max(0, i) % CHIP.length]}" aria-hidden="true">${ch}</span>`;
 }
 function icons() { try { window.lucide && window.lucide.createIcons({ attrs: { 'stroke-width': 1.9 } }); } catch (e) {} }
 
 const DEFAULTS = {
   cats: ['b-mat-dryck', 'b-djur', 'b-platser', 'b-sverige'],
   mode: 'classic', impCount: 1, showHint: true, catShow: 'all',
-  timer: 180, vote: 'open', noImpStart: true, sound: true
+  timer: 180, vote: 'open', noImpStart: true, sound: true, labels: 'names'
 };
 const S = {
   players: store.get('players', ['Alex', 'Robin', 'Sam', 'Kim', 'Charlie']),
@@ -703,9 +714,23 @@ function vSetup() {
   </section>
 
   <section class="panel">
-    ${head('users', 'Spelare', `<div class="stepper"><button type="button" data-action="delPlayer" data-i="${n - 1}" aria-label="Färre spelare" ${n <= 3 ? 'disabled' : ''}>${ic('minus')}</button><output aria-live="polite">${n}</output><button type="button" data-action="addPlayer" aria-label="Fler spelare" ${n >= 20 ? 'disabled' : ''}>${ic('plus')}</button></div>`)}
-    <ol class="names">${S.players.map((p, i) => `<li>${av(p, i)}<input class="name-input" id="name-${i}" data-i="${i}" value="${esc(p)}" maxlength="16" placeholder="Spelare ${i + 1}" autocomplete="off" enterkeyhint="next" aria-label="Namn på spelare ${i + 1}"><button type="button" class="x" data-action="delPlayer" data-i="${i}" aria-label="Ta bort spelare ${i + 1}" ${n <= 3 ? 'disabled' : ''}>${ic('x')}</button></li>`).join('')}</ol>
-    ${n < 20 ? `<button type="button" class="link" data-action="addPlayer">${ic('user-plus')}Lägg till spelare</button>` : ''}
+    ${head('users', 'Spelare', `<div class="stepper"><button type="button" data-action="delPlayer" data-i="${n - 1}" aria-label="Färre spelare" ${n <= 0 || S.ordering ? 'disabled' : ''}>${ic('minus')}</button><output aria-live="polite">${n}</output><button type="button" data-action="addPlayer" aria-label="Fler spelare" ${n >= 20 || S.ordering ? 'disabled' : ''}>${ic('plus')}</button></div>`)}
+    ${S.ordering ? `
+      <p class="note">Tryck på spelarna i den ordning ni sitter runt bordet, medurs. Börja med vem som helst. Tryck igen för att ångra en spelare.</p>
+      <div class="pick-grid seat-pick">${S.players.map((p, i) => { const pos = S.ordering.indexOf(i); return `<button type="button" class="pick" data-action="orderPick" data-i="${i}" aria-pressed="${pos >= 0}">${av(p, i)}<span>${esc(p)}</span>${pos >= 0 ? `<b class="ord">${pos + 1}</b>` : ''}</button>`; }).join('')}</div>
+      <div class="row-links"><button type="button" class="link" data-action="orderReset">${ic('rotate-ccw')}Börja om</button><button type="button" class="link danger" data-action="orderCancel">Avbryt</button></div>`
+    : `
+      ${seg('labels', [['names', 'Med namn'], ['numbers', 'Bara nummer']])}
+      ${numbered()
+        ? `<p class="note">Bestäm själva vem som har vilken siffra. Räkna gärna medurs runt bordet, så går mobilen alltid till grannen.</p>
+           ${n ? `<ol class="names nums">${S.players.map((_, i) => `<li>${av(`Spelare ${i + 1}`, i)}<span class="numname">Spelare ${i + 1}</span></li>`).join('')}</ol>` : ''}`
+        : n ? `<ol class="names">${S.players.map((p, i) => `<li>${av(p, i)}<input class="name-input" id="name-${i}" data-i="${i}" value="${esc(p)}" maxlength="16" placeholder="Spelare ${i + 1}" autocomplete="off" enterkeyhint="next" aria-label="Namn på spelare ${i + 1}"><button type="button" class="x" data-action="delPlayer" data-i="${i}" aria-label="Ta bort spelare ${i + 1}">${ic('x')}</button></li>`).join('')}</ol>` : ''}
+      ${n === 0 ? `<p class="empty">Inga spelare än. Lägg till dem med plus-knappen eller länken nedan.</p>` : ''}
+      ${n < 3 ? `<p class="warn">${ic('info')}Lägg till ${3 - n} spelare till. Ni behöver vara minst 3.</p>` : ''}
+      <div class="row-links">
+        ${n < 20 ? `<button type="button" class="link" data-action="addPlayer">${ic('user-plus')}Lägg till spelare</button>` : ''}
+        ${n >= 2 && !numbered() ? `<button type="button" class="link" data-action="orderStart">${ic('list-ordered')}Ordna som ni sitter</button>` : ''}
+      </div>`}
   </section>
 
   <section class="panel">
@@ -752,8 +777,8 @@ function vSetup() {
   </section>
 
   <div class="cta-bar">
-    <button type="button" class="btn gold big" data-action="start">${ic('layers')}Dela ut korten</button>
-    <p class="cta-meta">${n} spelare · ${impLabel()} · ${sel.length} ${plural(sel.length, 'kategori', 'kategorier')}</p>
+    <button type="button" class="btn gold big" data-action="start" ${n < 3 || S.ordering || !sel.length ? 'disabled' : ''}>${ic('layers')}Dela ut korten</button>
+    <p class="cta-meta">${S.ordering ? 'Välj sittordningen först' : n < 3 ? 'Minst 3 spelare behövs för att starta' : !sel.length ? 'Välj minst en kategori' : `${n} spelare · ${impLabel()} · ${sel.length} ${plural(sel.length, 'kategori', 'kategorier')}`}</p>
   </div>`;
 }
 
@@ -956,8 +981,8 @@ function vGuess() {
 }
 
 function boardHTML(gains) {
-  const names = [...new Set([...(S.round?.names || S.players), ...S.players])];
-  const seat = nm => { const i = S.players.indexOf(nm); return i >= 0 ? i : Math.max(0, S.round?.names.indexOf(nm) ?? 0); };
+  const names = [...new Set([...(S.round?.names || labelList()), ...labelList()])];
+  const seat = nm => { const i = labelList().indexOf(nm); return i >= 0 ? i : Math.max(0, S.round?.names.indexOf(nm) ?? 0); };
   const rows = names.map(nm => ({ nm, pts: S.scores[nm] || 0, g: gains ? (gains[nm] || 0) : null })).sort((a, b) => b.pts - a.pts || a.nm.localeCompare(b.nm, 'sv'));
   const top = rows[0]?.pts || 0;
   return `<ol class="board">${rows.map((x, i) => `<li class="${x.pts === top && top > 0 ? 'top1' : ''}"><span class="rk">${x.pts === top && top > 0 ? ic('crown') : i + 1}</span>${av(x.nm, seat(x.nm))}<span class="nm2">${esc(x.nm)}</span>${gains ? `<span class="gain ${x.g ? '' : 'zero'}">${x.g ? '+' + x.g : '±0'}</span>` : '<span></span>'}<span class="pts">${x.pts}</span></li>`).join('')}</ol>`;
@@ -1017,9 +1042,9 @@ function sheetRules() {
   </div>`;
 }
 function sheetScores() {
-  const names = [...new Set([...S.players, ...Object.keys(S.scores)])];
+  const names = [...new Set([...labelList(), ...Object.keys(S.scores)])];
   const rows = names.map(nm => ({ nm, pts: S.scores[nm] || 0 })).sort((a, b) => b.pts - a.pts || a.nm.localeCompare(b.nm, 'sv'));
-  const seat = nm => { const i = S.players.indexOf(nm); return i >= 0 ? i : names.indexOf(nm); };
+  const seat = nm => { const i = labelList().indexOf(nm); return i >= 0 ? i : names.indexOf(nm); };
   return `${sheetTop('Poäng')}
   <p class="empty">Poängen räknas automatiskt efter varje runda. Justera för hand om ni vill.</p>
   <ol class="board" style="max-width:none">${rows.map((x, i) => `<li><span class="rk">${i + 1}</span>${av(x.nm, seat(x.nm))}<span class="nm2">${esc(x.nm)}</span><span class="adj"><button type="button" data-action="adj" data-nm="${esc(x.nm)}" data-d="-1" aria-label="Ta bort en poäng från ${esc(x.nm)}">${ic('minus')}</button><button type="button" data-action="adj" data-nm="${esc(x.nm)}" data-d="1" aria-label="Ge ${esc(x.nm)} en poäng">${ic('plus')}</button></span><span class="pts">${x.pts}</span></li>`).join('')}</ol>
@@ -1085,7 +1110,7 @@ function startRound() {
   clearInterval(tickId);
   S.round = {
     no, word: pick.w, hint: pick.h || '', decoy: pick.d || '', cat: pick.cat, mode: st.mode,
-    imps, k, max, random, names: [...S.players], starter: cand[rand(cand.length)],
+    imps, k, max, random, names: [...labelList()], starter: cand[rand(cand.length)],
     deal: 0, peeked: false, peekWho: null,
     voteMode: st.vote, sel: null, votes: [], voteIdx: 0, voteStage: 'pass',
     out: null, revealed: false, points: null,
@@ -1210,7 +1235,20 @@ function arm(key, after) {
 }
 const A = {
   addPlayer() { if (S.players.length >= 20) return; S.players.push(`Spelare ${S.players.length + 1}`); clampImp(); saveCore(); render(); const el = $(`#name-${S.players.length - 1}`); if (el) { el.focus(); el.select(); } },
-  delPlayer(d) { if (S.players.length <= 3) return; S.players.splice(+d.i, 1); clampImp(); saveCore(); render(); },
+  delPlayer(d) { if (S.players.length <= 0 || S.ordering) return; S.players.splice(+d.i, 1); clampImp(); saveCore(); render(); },
+  orderStart() { if (numbered() || S.players.length < 2) return; cleanPlayers(); S.ordering = []; render(); },
+  orderReset() { S.ordering = []; render(); },
+  orderCancel() { S.ordering = null; render(); },
+  orderPick(d) {
+    const i = +d.i, o = S.ordering, pos = o.indexOf(i);
+    if (pos >= 0) o.splice(pos, 1); else { o.push(i); buzz(15); }
+    if (o.length === S.players.length) {
+      S.players = o.map(k => S.players[k]);
+      S.ordering = null; saveCore();
+      toast('Sittordningen är sparad.');
+    }
+    render();
+  },
   set(d) {
     const v = /^\d+$/.test(d.val) ? +d.val : d.val;
     S.settings[d.key] = v;
@@ -1322,7 +1360,7 @@ function boot(data) {
   clampImp();
   render();
   const fs = $('#fsBtn');
-  if (fs && document.fullscreenEnabled) {
+  if (fs && document.fullscreenEnabled && window.matchMedia('(pointer: fine)').matches) {
     fs.hidden = false;
     document.addEventListener('fullscreenchange', () => {
       const on = !!document.fullscreenElement;
